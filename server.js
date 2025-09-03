@@ -9,7 +9,7 @@ const PORT   = process.env.PORT || 8080;
 const BUCKET = process.env.BUCKET || "zipcodetiles";
 const OBJECT = process.env.OBJECT || "zips.mbtiles";
 const LOCAL  = process.env.LOCAL_TILESET || "/tmp/zips.mbtiles";
-const CFG    = "/tmp/config.json";                              // <-- define CFG
+const CFG    = "/tmp/config.json";              // ✅ define CFG
 
 async function ensureMbtiles() {
   try { const s = statSync(LOCAL); if (s.size > 0) return; } catch {}
@@ -24,18 +24,17 @@ async function ensureMbtiles() {
 }
 
 function writeConfig() {
-  // Resolve the installed preview styles bundle
   const stylesRoot = require.resolve("tileserver-gl-styles/package.json")
     .replace(/\/package\.json$/, "");
 
   const cfg = {
     options: {
-      frontPage: true,
+      frontPage: true,                                // bring back UI
       paths: {
-        root: stylesRoot,     // where default UI expects styles/fonts
+        root: stylesRoot,                             
         styles: "styles",
         fonts: "fonts",
-        mbtiles: "/tmp"       // our tiles live in /tmp
+        mbtiles: "/tmp"
       }
     },
     data: {
