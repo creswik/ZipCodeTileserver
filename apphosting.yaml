@@ -1,0 +1,14 @@
+# Firebase App Hosting runtime settings (applied at deploy)
+runConfig:
+  minInstances: 1        # keep one warm to reduce cold starts
+  maxInstances: 30
+  concurrency: 40
+  cpu: 2
+  memoryMiB: 2048
+
+env:
+  - variable: TILESET_PATH
+    value: /data/tiles.mbtiles
+    availability:
+      - RUNTIME
+
