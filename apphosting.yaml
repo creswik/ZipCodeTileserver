@@ -7,6 +7,6 @@ runConfig:
 
 env:
   - variable: TILESET_PATH
-    value: /data/tiles.mbtiles
+    value: /data/zips.mbtiles
     availability:
       - RUNTIME
