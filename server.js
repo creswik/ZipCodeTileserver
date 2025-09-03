@@ -1,25 +1,44 @@
+import { Storage } from "@google-cloud/storage";
+import { createWriteStream, statSync, writeFileSync } from "fs";
+import { spawn } from "child_process";
+import path from "path";
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 
+const PORT   = process.env.PORT || 8080;
+const BUCKET = process.env.BUCKET || "zipcodetiles";
+const OBJECT = process.env.OBJECT || "zips.mbtiles";
+const LOCAL  = process.env.LOCAL_TILESET || "/tmp/zips.mbtiles";
+const CFG    = "/tmp/config.json";                              // <-- define CFG
+
+async function ensureMbtiles() {
+  try { const s = statSync(LOCAL); if (s.size > 0) return; } catch {}
+  console.log(`[startup] downloading gs://${BUCKET}/${OBJECT} -> ${LOCAL}`);
+  const storage = new Storage();
+  await new Promise((res, rej) =>
+    storage.bucket(BUCKET).file(OBJECT)
+      .createReadStream().on("error", rej)
+      .pipe(createWriteStream(LOCAL)).on("error", rej).on("finish", res)
+  );
+  console.log("[startup] download complete");
+}
+
 function writeConfig() {
-  // Resolve the installed 'tileserver-gl-styles' directory robustly
+  // Resolve the installed preview styles bundle
   const stylesRoot = require.resolve("tileserver-gl-styles/package.json")
     .replace(/\/package\.json$/, "");
 
   const cfg = {
     options: {
-      // Serve the default landing page
       frontPage: true,
-      // Tell TileServer where to find styles/fonts (+ our mbtiles under /tmp)
       paths: {
-        root: stylesRoot,
+        root: stylesRoot,     // where default UI expects styles/fonts
         styles: "styles",
         fonts: "fonts",
-        mbtiles: "/tmp"
+        mbtiles: "/tmp"       // our tiles live in /tmp
       }
     },
     data: {
-      // exposes /data/zipcodes.json and /data/zipcodes/{z}/{x}/{y}.pbf
       zipcodes: { mbtiles: "zips.mbtiles" }
     }
   };
@@ -27,5 +46,11 @@ function writeConfig() {
   console.log("[startup] wrote config:", CFG, "root=", stylesRoot);
 }
 
-// …later when starting tileserver:
-const args = ["--config", CFG, "-p", String(PORT), "-b", "0.0.0.0", "--verbose"];
+(async () => {
+  await ensureMbtiles();
+  writeConfig();
+  const args = ["--config", CFG, "-p", String(PORT), "-b", "0.0.0.0", "--verbose"];
+  console.log("[startup] starting tileserver-gl-light", args.join(" "));
+  const ps = spawn("tileserver-gl-light", args, { stdio: "inherit" });
+  ps.on("exit", (code) => process.exit(code ?? 1));
+})().catch((e) => { console.error("[startup error]", e); process.exit(1); });
