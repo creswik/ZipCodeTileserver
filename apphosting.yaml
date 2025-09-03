@@ -6,7 +6,12 @@ runConfig:
   memoryMiB: 2048
 
 env:
-  - variable: TILESET_PATH
-    value: /data/zips.mbtiles
-    availability:
-      - RUNTIME
+  - variable: BUCKET
+    value: zipcodetiles
+    availability: [RUNTIME]
+  - variable: OBJECT
+    value: zips.mbtiles
+    availability: [RUNTIME]
+  - variable: LOCAL_TILESET
+    value: /tmp/zips.mbtiles
+    availability: [RUNTIME]
