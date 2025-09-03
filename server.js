@@ -2,8 +2,6 @@ import { Storage } from "@google-cloud/storage";
 import { createWriteStream, statSync, writeFileSync } from "fs";
 import { spawn } from "child_process";
 import path from "path";
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
 
 const PORT   = process.env.PORT || 8080;
 const BUCKET = process.env.BUCKET || "zipcodetiles";
@@ -24,25 +22,18 @@ async function ensureMbtiles() {
 }
 
 function writeConfig() {
-  const stylesRoot = require.resolve("tileserver-gl-styles/package.json")
-    .replace(/\/package\.json$/, "");
-
+  // Disable preview page; serve only /data/* and tiles.
   const cfg = {
     options: {
-      frontPage: true,                                // bring back UI
-      paths: {
-        root: stylesRoot,                             
-        styles: "styles",
-        fonts: "fonts",
-        mbtiles: "/tmp"
-      }
+      frontPage: false,
+      paths: { root: "/", mbtiles: "tmp" }   // resolves to /tmp/<file>
     },
     data: {
-      zipcodes: { mbtiles: "zips.mbtiles" }
+      zipcodes: { mbtiles: path.basename(LOCAL) }
     }
   };
   writeFileSync(CFG, JSON.stringify(cfg, null, 2));
-  console.log("[startup] wrote config:", CFG, "root=", stylesRoot);
+  console.log("[startup] wrote config:", CFG);
 }
 
 (async () => {
