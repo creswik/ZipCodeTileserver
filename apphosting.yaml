@@ -7,7 +7,7 @@ runConfig:
 
 env:
   - variable: BUCKET
-    value: zipcodetiles
+    value: int-zipcodetiles
     availability: [RUNTIME]
   - variable: COUNTY_OBJECT
     value: counties.mbtiles
