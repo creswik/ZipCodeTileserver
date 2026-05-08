@@ -75,7 +75,11 @@ function resolveTileserverBin() {
   const pkgPath = require.resolve("tileserver-gl-light/package.json");
   const pkgRoot = path.dirname(pkgPath);
   const pkg = require("tileserver-gl-light/package.json");
-  const binRel = typeof pkg.bin === "string" ? pkg.bin : pkg.bin["tileserver-gl-light"];
+  let binRel;
+  if (typeof pkg.bin === "string") binRel = pkg.bin;
+  else if (pkg.bin && typeof pkg.bin === "object") binRel = Object.values(pkg.bin)[0];
+  if (!binRel) binRel = pkg.main || "src/main.js";
+  console.log("[startup] resolved tileserver bin:", binRel);
   return path.join(pkgRoot, binRel);
 }
 
