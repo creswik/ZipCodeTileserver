@@ -7,57 +7,74 @@ const require = createRequire(import.meta.url);
 
 const PORT   = process.env.PORT || 8080;
 const BUCKET = process.env.BUCKET || "zipcodetiles";
-const OBJECT = process.env.OBJECT || "zips.mbtiles";
-const LOCAL  = process.env.LOCAL_TILESET || "/tmp/zips.mbtiles";
-const CFG    = "/tmp/config.json"; // <-- important
+const CFG    = "/tmp/config.json";
+
+const DATASETS = [
+  {
+    id: "counties",
+    object: process.env.COUNTY_OBJECT || "counties.mbtiles",
+    local:  process.env.COUNTY_LOCAL  || "/tmp/counties.mbtiles",
+  },
+  {
+    id: "zcta",
+    object: process.env.ZCTA_OBJECT || "zcta.mbtiles",
+    local:  process.env.ZCTA_LOCAL  || "/tmp/zcta.mbtiles",
+  },
+];
+
+const storage = new Storage();
+
+async function downloadOne({ id, object, local }) {
+  try {
+    const s = statSync(local);
+    if (s.size > 0) {
+      console.log(`[startup] ${id}: ${local} already present (${s.size} bytes)`);
+      return;
+    }
+  } catch {}
+  console.log(`[startup] ${id}: downloading gs://${BUCKET}/${object} -> ${local}`);
+  await new Promise((res, rej) =>
+    storage.bucket(BUCKET).file(object)
+      .createReadStream().on("error", rej)
+      .pipe(createWriteStream(local)).on("error", rej).on("finish", res)
+  );
+  console.log(`[startup] ${id}: download complete`);
+}
 
 async function ensureMbtiles() {
-  try {
-    const s = statSync(LOCAL);
-    if (s.size > 0) return;
-  } catch {}
-  console.log(`[startup] downloading gs://${BUCKET}/${OBJECT} -> ${LOCAL}`);
-  const storage = new Storage();
-  await new Promise((res, rej) =>
-    storage.bucket(BUCKET).file(OBJECT)
-      .createReadStream().on("error", rej)
-      .pipe(createWriteStream(LOCAL)).on("error", rej).on("finish", res)
-  );
-  console.log("[startup] download complete");
+  await Promise.all(DATASETS.map(downloadOne));
 }
 
 function writeConfig() {
-  // Resolve the installed preview styles bundle so the default front page works.
   const stylesRoot = require.resolve("tileserver-gl-styles/package.json")
     .replace(/\/package\.json$/, "");
 
+  const data = {};
+  for (const d of DATASETS) {
+    data[d.id] = { mbtiles: path.basename(d.local) };
+  }
+
   const cfg = {
     options: {
-      // Serve the built-in landing page (list of data/styles)
       frontPage: true,
       paths: {
-        root: stylesRoot,  // where styles/fonts live
+        root: stylesRoot,
         styles: "styles",
         fonts: "fonts",
-        // our mbtiles is downloaded to /tmp
-        mbtiles: "/tmp"
-      }
+        mbtiles: "/tmp",
+      },
     },
-    data: {
-      // exposes: /data/zipcodes.json and /data/zipcodes/{z}/{x}/{y}.pbf
-      zipcodes: { mbtiles: path.basename(LOCAL) }
-    }
+    data,
   };
 
   writeFileSync(CFG, JSON.stringify(cfg, null, 2));
-  console.log("[startup] wrote config:", CFG, "root=", stylesRoot);
+  console.log("[startup] wrote config:", CFG, "datasets=", Object.keys(data).join(","));
 }
 
 (async () => {
   await ensureMbtiles();
   writeConfig();
 
-  // Use --config (don’t pass a positional .mbtiles; that caused the “too many arguments” error)
   const args = ["--config", CFG, "-p", String(PORT), "-b", "0.0.0.0", "--verbose"];
   console.log("[startup] starting tileserver-gl-light", args.join(" "));
   const ps = spawn("tileserver-gl-light", args, { stdio: "inherit" });
