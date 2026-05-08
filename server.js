@@ -71,13 +71,22 @@ function writeConfig() {
   console.log("[startup] wrote config:", CFG, "datasets=", Object.keys(data).join(","));
 }
 
+function resolveTileserverBin() {
+  const pkgPath = require.resolve("tileserver-gl-light/package.json");
+  const pkgRoot = path.dirname(pkgPath);
+  const pkg = require("tileserver-gl-light/package.json");
+  const binRel = typeof pkg.bin === "string" ? pkg.bin : pkg.bin["tileserver-gl-light"];
+  return path.join(pkgRoot, binRel);
+}
+
 (async () => {
   await ensureMbtiles();
   writeConfig();
 
-  const args = ["--config", CFG, "-p", String(PORT), "-b", "0.0.0.0", "--verbose"];
-  console.log("[startup] starting tileserver-gl-light", args.join(" "));
-  const ps = spawn("tileserver-gl-light", args, { stdio: "inherit" });
+  const binPath = resolveTileserverBin();
+  const args = [binPath, "--config", CFG, "-p", String(PORT), "-b", "0.0.0.0", "--verbose"];
+  console.log("[startup] starting", process.execPath, args.join(" "));
+  const ps = spawn(process.execPath, args, { stdio: "inherit" });
   ps.on("exit", (code) => process.exit(code ?? 1));
 })().catch((e) => {
   console.error("[startup error]", e);
